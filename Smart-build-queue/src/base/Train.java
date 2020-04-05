@@ -1,10 +1,10 @@
 package base;
 
 public class Train implements Comparable<Train> {
-    final int id;
-    final int arrivalTime;
-    final int unloadingTime;
-    final int unloadingCost;
+    public final int id;
+    public final int arrivalTime;
+    public final int unloadingTime;
+    public final int unloadingCost;
 
     public Train(int id, int arrivalTime, int unloadingTime, int unloadingCost) {
         this.id = id;
