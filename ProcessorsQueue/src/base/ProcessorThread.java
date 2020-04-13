@@ -2,7 +2,7 @@ package base;
 
 import java.util.List;
 
-public class ProcessorThread<T> implements Runnable {
+public class ProcessorThread<T> extends Thread implements Runnable {
     private ProcessorsRunner<T> mainClass;
     private Processor<T> processor;
     private int iteration;
@@ -24,9 +24,12 @@ public class ProcessorThread<T> implements Runnable {
                 return;
             }
 
-            mainClass.setResults(processor.getId(), processor.process(dependencies));
-        } catch (Exception e) {
+            mainClass.counter++;
+            mainClass.setResults(processor.getId(), result);
+        } catch (ProcessorException e) {
             System.out.println("Processor exception at processor: " + processor.getId());
+        } finally {
+            this.interrupt();
         }
     }
 }

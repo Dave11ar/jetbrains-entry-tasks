@@ -7,7 +7,10 @@ public class ProcessorsRunner<T> implements Runner<T> {
     private Set<Processor<T>> processors;
     private int maxThreads;
     private int matIterations;
+
+    public int counter = 0;
     public int nullIteration;
+
     private Map<String, List<T>> results;
     private Map<String, Processor<T>> idToProcessor = new HashMap<>();
     private Map<String, ArrayList<String>> graphOfDependencies = new HashMap<>();
@@ -31,21 +34,18 @@ public class ProcessorsRunner<T> implements Runner<T> {
         makeDependenciesGraph();
         buildProcessorsQueue();
 
-        while (true) {
-            BlockingQueue<Runnable> queue = buildQueue();
-            if (queue.isEmpty()) {
-                break;
-            }
+        ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(maxThreads);
+        int need = maxIterations * processors.size();
 
-            ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        BlockingQueue<Runnable> queue;
+        while (counter != need) {
+            queue = buildQueue();
 
             for (Runnable run : queue) {
                 threadPoolExecutor.execute(run);
             }
-            threadPoolExecutor.shutdown();
-
-            threadPoolExecutor.awaitTermination(1, TimeUnit.MINUTES);
         }
+        threadPoolExecutor.shutdown();
 
         for (Processor<T> processor : processors) {
             String curProcessor = processor.getId();
@@ -87,6 +87,9 @@ public class ProcessorsRunner<T> implements Runner<T> {
     boolean checkDependencies(String processor, int iteration) {
         List<String> dependencies = idToProcessor.get(processor).getInputIds();
 
+        if (results.get(processor).size() < iteration - 1) {
+            return false;
+        }
         for (String curProcessor : dependencies) {
             if (results.get(curProcessor).size() < iteration + 1) {
                 return false;

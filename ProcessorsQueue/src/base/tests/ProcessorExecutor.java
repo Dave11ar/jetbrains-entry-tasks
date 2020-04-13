@@ -30,12 +30,12 @@ public class ProcessorExecutor<T extends Integer> implements Processor<T> {
     public T process(List<T> input) throws ProcessorException {
 
         long jopa = 0;
-        while (jopa < 500000000L) jopa++;
+        while (jopa < 500000L * Long.parseLong(id) * Long.parseLong(id) ) jopa++;
 
-        Double cur = Math.random()*100;
+        Integer cur = startValue;
 
         for (T current : input) {
-            cur = Double.max(cur, Integer.valueOf(current));
+            cur = Integer.max(cur, Integer.valueOf(current));
         }
 
         return (T) Integer.valueOf(cur.intValue());
