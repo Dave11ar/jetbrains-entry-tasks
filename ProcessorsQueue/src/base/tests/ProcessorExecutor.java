@@ -28,6 +28,10 @@ public class ProcessorExecutor<T extends Integer> implements Processor<T> {
 
     @Override
     public T process(List<T> input) throws ProcessorException {
+
+        long jopa = 0;
+        while (jopa < 500000000L) jopa++;
+
         Double cur = Math.random()*100;
 
         for (T current : input) {

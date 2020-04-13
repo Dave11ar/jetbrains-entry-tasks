@@ -17,13 +17,11 @@ public class ProcessorThread<T> implements Runnable {
 
     @Override
     public void run() {
-        long jopa = 0;
-        while (jopa < 5000000000L) jopa++;
-
         try {
             T result = processor.process(dependencies);
             if (result == null) {
                 mainClass.nullIteration = Math.min(mainClass.nullIteration, iteration);
+                return;
             }
 
             mainClass.setResults(processor.getId(), processor.process(dependencies));

@@ -8,12 +8,14 @@ public class ProcessorsRunner<T> implements Runner<T> {
     private int maxThreads;
     private int matIterations;
     public int nullIteration;
-    private HashMap<String, List<T>> results;
+    private Map<String, List<T>> results;
+    private Map<String, Processor<T>> idToProcessor = new HashMap<>();
+    private Map<String, ArrayList<String>> graphOfDependencies = new HashMap<>();
+    private HashMap<String, Integer> curIteration = new HashMap<>();
 
-    private HashMap<String, Processor<T>> idToProcessor = new HashMap<>();
-    
     @Override
-    public Map<String, List<T>> runProcessors(Set<Processor<T>> processors, int maxThreads, int maxIterations) throws ProcessorException, InterruptedException {
+    public Map<String, List<T>> runProcessors(Set<Processor<T>> processors, int maxThreads, int maxIterations)
+            throws ProcessorException, InterruptedException {
         this.nullIteration = maxIterations;
         this.processors = processors;
         this.maxThreads = maxThreads;
@@ -27,9 +29,7 @@ public class ProcessorsRunner<T> implements Runner<T> {
 
         getIdProcessorMap();
         makeDependenciesGraph();
-        bfs();
-
-        //имеем граф зависимостей и очередь выполнения
+        buildProcessorsQueue();
 
         while (true) {
             BlockingQueue<Runnable> queue = buildQueue();
@@ -57,8 +57,6 @@ public class ProcessorsRunner<T> implements Runner<T> {
 
         return results;
     }
-
-    private HashMap<String, Integer> curIteration = new HashMap<>();
 
     BlockingQueue<Runnable> buildQueue() {
         BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(maxThreads);
@@ -97,23 +95,19 @@ public class ProcessorsRunner<T> implements Runner<T> {
         return true;
     }
 
-    // API RESULTS
-    public T getResult(int iteration, String processor) {
-        return results.get(processor).get(iteration);
-    }
-
     public void setResults(String processor, T result) {
         results.get(processor).add(result);
     }
-    // API RESULTS
+
+    private ArrayList<String> processorsQueue = new ArrayList<>();
 
     /*
-        составляем очередь в от самых независимых вершин к самым зависимым
-        и каждый раз идем слева направо и набираем независимые процессы пока можем либо пока
-        меньше maxTreads
+        build queue of processors wih invariant:
+        processor[i] can always be launched before processor[j] if i < j,
+        and can't be launched before some(can be 0) of processor[k](), k < i
     */
-    private ArrayList<String> processorsQueue = new ArrayList<>();
-    private void bfs() {
+    private void buildProcessorsQueue() {
+        // using bfs in out graph of dependencies
         LinkedList<String> queue = new LinkedList<>(sourceProcessors);
         used = new HashSet<>(sourceProcessors);
 
@@ -129,47 +123,42 @@ public class ProcessorsRunner<T> implements Runner<T> {
             }
         }
     }
-    /*
-        ИМЕЕМ ГРАФ ЗАВИСИМОСТЕЙ
-        НАДО ПОСТРОИТЬ ОЧЕРЕДЬ ДЛЯ ТРЕДОВ
 
-
-
-     */
-    
-    
-    // SOME DEPENDENCIES GRAPH FLEX
-    // creating graph
     private HashSet<String> used = new HashSet<>();
-    private HashSet<String> curIterationUsed = new HashSet<>();
-    private HashMap<String, ArrayList<String>> graphOfDependencies = new HashMap<>();
-            
+    private HashSet<String> paintedVertexes = new HashSet<>();
+
+    // create dependencies graph via dfs in format: if A depends from B, graph has  edge B -> A
     private void makeDependenciesGraph() throws ProcessorException {
-        for (Processor<T> processor : processors) graphOfDependencies.put(processor.getId(), new ArrayList<>());
+        // initialize empty graph
+        for (Processor<T> processor : processors) {
+            graphOfDependencies.put(processor.getId(), new ArrayList<>());
+        }
 
         for (Processor<T> processor : processors) {
-
             if (!used.contains(processor.getId())) {
-                curIterationUsed.clear();
                 dfs(processor.getId());
             }
         }
     }
 
+    // creators of information --- independent processors
     private ArrayList<String> sourceProcessors = new ArrayList<>();
-    
+
     private void dfs(String curProcessor) throws ProcessorException {
+        // source edges, needs to be reversed for our format of graph
         List<String> edges = idToProcessor.get(curProcessor).getInputIds();
-        used.add(idToProcessor.get(curProcessor).getId());
-        curIterationUsed.add(idToProcessor.get(curProcessor).getId());
+
+        used.add(curProcessor);
+        paintedVertexes.add(curProcessor);
 
         if (edges.size() == 0) {
             sourceProcessors.add(curProcessor);
         }
 
         for (String edge : edges) {
-            if (curIterationUsed.contains(edge)) {
-                throw new ProcessorException("Dependencies cycle exception");
+            // use typical algorithm for searching loop(paint vertex when come and repaint when go out)
+            if (paintedVertexes.contains(edge)) {
+                throw new ProcessorException("Dependencies loop detected");
             }
 
             graphOfDependencies.get(edge).add(curProcessor);
@@ -177,8 +166,10 @@ public class ProcessorsRunner<T> implements Runner<T> {
                 dfs(edge);
             }
         }
+        paintedVertexes.remove(curProcessor);
     }
-    
+
+    // fill map of <id, processor>
     void getIdProcessorMap() {
         for (Processor<T> processor : processors) {
             idToProcessor.put(processor.getId(), processor);
