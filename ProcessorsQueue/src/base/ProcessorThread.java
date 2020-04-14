@@ -24,7 +24,6 @@ public class ProcessorThread<T> extends Thread implements Runnable {
                 return;
             }
 
-            mainClass.counter++;
             mainClass.setResults(processor.getId(), result);
         } catch (ProcessorException e) {
             System.out.println("Processor exception at processor: " + processor.getId());

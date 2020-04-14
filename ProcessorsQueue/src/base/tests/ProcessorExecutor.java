@@ -5,12 +5,12 @@ import base.ProcessorException;
 
 import java.util.List;
 
-public class ProcessorExecutor<T extends Integer> implements Processor<T> {
+public class ProcessorExecutor<T extends Long> implements Processor<T> {
     private List<String> parameters;
     private String id;
-    private int startValue;
+    private long startValue;
 
-    public ProcessorExecutor(List<String> parameters, String id, int startValue) {
+    public ProcessorExecutor(List<String> parameters, String id, long startValue) {
         this.parameters = parameters;
         this.id = id;
         this.startValue = startValue;
@@ -28,16 +28,14 @@ public class ProcessorExecutor<T extends Integer> implements Processor<T> {
 
     @Override
     public T process(List<T> input) throws ProcessorException {
-
-        long jopa = 0;
-        while (jopa < 500000L * Long.parseLong(id) * Long.parseLong(id) ) jopa++;
-
-        Integer cur = startValue;
+        long cur = startValue;
 
         for (T current : input) {
-            cur = Integer.max(cur, Integer.valueOf(current));
+            cur = Math.abs(Long.min(1000000000L, cur + Long.valueOf(current) + startValue));
         }
+        //startValue += Math.abs(Long.min(1000000000L, cur));
+        startValue++;
 
-        return (T) Integer.valueOf(cur.intValue());
+        return (T) Long.valueOf(cur);
     }
 }
