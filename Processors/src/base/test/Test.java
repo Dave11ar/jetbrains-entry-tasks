@@ -1,8 +1,9 @@
-package base.tests;
+package base.test;
 
 import base.Processor;
 import base.ProcessorException;
-import base.MultiThreadSolution;
+import base.multi.MultiThreadSolution;
+import base.single.SingleThreadSolution;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -33,12 +34,6 @@ public class Test {
                         deleteLoops();
                     }
 
-                    Set<Processor<Long>> processorsCopy = new HashSet<>();
-                    for (Processor<Long> curProcessor : processors) {
-                        processorsCopy.add(new TestProcessorExecutor<>(List.copyOf(curProcessor.getInputIds()),
-                                String.copyValueOf(curProcessor.getId().toCharArray()), startValues.get(curProcessor.getId())));
-                    }
-
                     boolean exceptionSingle = false;
                     boolean exceptionMulti = false;
                     try {
@@ -47,14 +42,15 @@ public class Test {
                     } catch (ProcessorException e) {
                         exceptionSingle = true;
                     }
+
                     try {
-                        resultsMultiThread = new MultiThreadSolution<Long>().runProcessors(processorsCopy,
-                                Integer.max((int)Math.abs(Math.random() * 200), 1), numberOfIterations);
+                        resultsMultiThread = new MultiThreadSolution<Long>().runProcessors(processors,
+                                Integer.max((int)Math.abs(Math.random() * 150), 1), numberOfIterations);
                     } catch (ProcessorException e) {
                         exceptionMulti = true;
                     } catch (ExecutionException e) { // shouldn't be in correct program
-                        exceptionSingle = false;
-                        exceptionMulti = true;
+                        testResult(false);
+                        continue;
                     }
 
                     if (exceptionSingle || exceptionMulti) {

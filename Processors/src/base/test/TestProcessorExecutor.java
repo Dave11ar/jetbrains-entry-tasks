@@ -1,7 +1,6 @@
-package base.tests;
+package base.test;
 
 import base.Processor;
-import base.ProcessorException;
 
 import java.util.List;
 

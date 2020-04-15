@@ -1,4 +1,7 @@
-package base;
+package base.multi;
+
+import base.Processor;
+import base.ProcessorException;
 
 import java.util.List;
 import java.util.concurrent.Callable;

@@ -1,4 +1,8 @@
-package base;
+package base.multi;
+
+import base.Processor;
+import base.ProcessorException;
+import base.Runner;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -29,9 +33,9 @@ public class MultiThreadSolution<T> implements Runner<T> {
 
         nullIteration = maxIterations;
 
-        for (Processor<T> curProcessor : processors) {
-            curIteration.put(curProcessor.getId(), 0);
-            results.put(curProcessor.getId(), new LinkedList<>());
+        for (Processor<T> processor : processors) {
+            curIteration.put(processor.getId(), 0);
+            results.put(processor.getId(), new LinkedList<>());
         }
 
         getIdProcessorMap();

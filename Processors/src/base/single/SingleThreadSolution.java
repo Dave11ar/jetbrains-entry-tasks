@@ -1,4 +1,4 @@
-package base.tests;
+package base.single;
 
 import base.Processor;
 import base.ProcessorException;
