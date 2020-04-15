@@ -3,6 +3,7 @@ package base;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 public interface Runner<T> {
     /**
@@ -21,5 +22,5 @@ public interface Runner<T> {
 
      */
 
-    Map<String, List<T>> runProcessors(Set<Processor<T>> processors, int maxThreads, int maxIterations) throws ProcessorException, InterruptedException;
+    Map<String, List<T>> runProcessors(Set<Processor<T>> processors, int maxThreads, int maxIterations) throws ProcessorException, InterruptedException, ExecutionException;
 }

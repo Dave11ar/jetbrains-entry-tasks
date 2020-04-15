@@ -5,6 +5,7 @@ import base.ProcessorException;
 import base.ProcessorsRunner;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 public class Test {
     private static Set<Processor<Long>> processors = new HashSet<>();
@@ -39,7 +40,7 @@ public class Test {
                     }
                     try {
                         processorsThread = new ProcessorsRunner<Long>().runProcessors(processorsCopy, 50, j);
-                    } catch (ProcessorException e) {
+                    } catch (ProcessorException | ExecutionException e) {
                         i2 = true;
                     }
 
@@ -86,7 +87,6 @@ public class Test {
 
         return true;
     }
-
 
     private static void fillProcessors(int numberOfProcessors) {
         processors = new HashSet<>();

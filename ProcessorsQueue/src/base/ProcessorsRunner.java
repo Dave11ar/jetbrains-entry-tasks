@@ -5,26 +5,26 @@ import java.util.concurrent.*;
 
 public class ProcessorsRunner<T> implements Runner<T> {
     private Set<Processor<T>> processors;
-    private int maxIterations;
     private int maxThreads;
-    public long counter = 0;
+    public int maxIterations;
     public int nullIteration;
-
-    private Map<String, List<T>> results = new HashMap<>();
+    private Map<String, List<T>> results;
     private Map<String, Processor<T>> idToProcessor = new HashMap<>();
     private Map<String, ArrayList<String>> graphOfDependencies = new HashMap<>();
-    private HashMap<String, Integer> curIteration = new HashMap<>();
-    //private BlockingQueue<Runnable> queue;
-    ExecutorService threadPoolExecutor;
+    public  HashMap<String,  Integer> curIteration = new HashMap<>();
+    private ExecutorService threadPoolExecutor;
+    public int counter = 0;
+    public Set<String> gline = new HashSet<>();
+    private Map<String, Future<T>>futureTasks = new HashMap<>();
 
     @Override
     public Map<String, List<T>> runProcessors(Set<Processor<T>> processors, int maxThreads, int maxIterations)
-            throws ProcessorException, InterruptedException {
-        this.maxThreads = maxThreads;
+            throws ProcessorException, InterruptedException, ExecutionException {
         this.nullIteration = maxIterations;
         this.processors = processors;
+        this.maxThreads = maxThreads;
         this.maxIterations = maxIterations;
-        //queue = new ArrayBlockingQueue<>(maxThreads);
+        this.results = new HashMap<>();
 
         for (Processor<T> curProcessor : processors) {
             curIteration.put(curProcessor.getId(), 0);
@@ -32,20 +32,17 @@ public class ProcessorsRunner<T> implements Runner<T> {
         }
 
         getIdProcessorMap();
-        buildDependenciesGraph();
+        makeDependenciesGraph();
+        buildProcessorsQueue();
 
         threadPoolExecutor = Executors.newFixedThreadPool(maxThreads);
 
-
         while (counter != processors.size()) {
-            threadPoolExecutor = Executors.newFixedThreadPool(maxThreads);
             buildQueue();
-            threadPoolExecutor.shutdown();
-            threadPoolExecutor.awaitTermination(1000000000L, TimeUnit.MINUTES);
         }
 
-//        threadPoolExecutor.shutdown();
-//        threadPoolExecutor.awaitTermination(1000000000L, TimeUnit.MINUTES);
+        threadPoolExecutor.shutdown();
+        threadPoolExecutor.awaitTermination(100, TimeUnit.MINUTES);
 
         for (Processor<T> processor : processors) {
             String curProcessor = processor.getId();
@@ -58,36 +55,33 @@ public class ProcessorsRunner<T> implements Runner<T> {
         return results;
     }
 
-    private void buildQueue() {
-        used = new HashSet<>();
+    private void buildQueue() throws ExecutionException, InterruptedException {
+        Set<String> delete = new HashSet<>();
+        for (String curProcessor: gline) {
+            Future<T> curTask = futureTasks.get(curProcessor);
 
-        for (String curProcessor : sourceProcessors) {
-            dfsBuildQueue(curProcessor);
-        }
-    }
-
-    private void dfsBuildQueue(String curProcessor) {
-        used.add(curProcessor);
-
-        if (curIteration.get(curProcessor) < maxIterations && checkDependencies(curProcessor, curIteration.get(curProcessor))) {
-
-            threadPoolExecutor.execute(new ProcessorThread<T>(this, idToProcessor.get(curProcessor), curIteration.get(curProcessor),
-                    buildListOfDependencies(curProcessor, curIteration.get(curProcessor))));
-
-            curIteration.replace(curProcessor, curIteration.get(curProcessor) + 1);
-            if (curIteration.get(curProcessor) == maxIterations) counter++;
+            if (curTask.isDone()) {
+                setResults(curProcessor, curTask.get());
+                curIteration.replace(curProcessor, curIteration.get(curProcessor) + 1);
+                if (curIteration.get(curProcessor) == maxIterations) counter++;
+                delete.add(curProcessor);
+            }
         }
 
-        for (int edge = 0; edge < graphOfDependencies.get(curProcessor).size(); edge++) {
-            String to = graphOfDependencies.get(curProcessor).get(edge);
-            if (!used.contains(to)) {
-                dfsBuildQueue(to);
+        for (String curProcessor : delete) gline.remove(curProcessor);
+
+        for (String curProcessor : processorsQueue) {
+            if (curIteration.get(curProcessor) == maxIterations) continue;
+
+            if (!gline.contains(curProcessor) && checkDependencies(curProcessor, curIteration.get(curProcessor))) {
+                gline.add(curProcessor);
+                futureTasks.put(curProcessor, threadPoolExecutor.submit((Callable<T>) new ProcessorThread<T>(idToProcessor.get(curProcessor),
+                        makeListOfDependencies(curProcessor, curIteration.get(curProcessor)))));
             }
         }
     }
 
-
-    List<T> buildListOfDependencies(String curProcessor, int iteration) {
+    List<T> makeListOfDependencies(String curProcessor, int iteration) {
         List<T> resultsDependencies = new ArrayList<>();
         List<String> dependencies = idToProcessor.get(curProcessor).getInputIds();
 
@@ -100,11 +94,8 @@ public class ProcessorsRunner<T> implements Runner<T> {
     boolean checkDependencies(String processor, int iteration) {
         List<String> dependencies = idToProcessor.get(processor).getInputIds();
 
-        if (results.get(processor).size() < iteration) {
-            return false;
-        }
         for (String curProcessor : dependencies) {
-            if (results.get(curProcessor).size() <= iteration) {
+            if (results.get(curProcessor).size() < iteration + 1) {
                 return false;
             }
         }
@@ -112,14 +103,41 @@ public class ProcessorsRunner<T> implements Runner<T> {
     }
 
     public void setResults(String processor, T result) {
-        results.get(processor).add(result);
+        synchronized (gline) {
+            results.get(processor).add(result);
+        }
+    }
+
+    private ArrayList<String> processorsQueue = new ArrayList<>();
+
+    /*
+        build queue of processors wih invariant:
+        processor[i] can always be launched before processor[j] if i < j,
+        and can't be launched before some(can be 0) of processor[k](), k < i
+    */
+    private void buildProcessorsQueue() {
+        // using bfs in out graph of dependencies
+        LinkedList<String> queue = new LinkedList<>(sourceProcessors);
+        used = new HashSet<>(sourceProcessors);
+
+        while (!queue.isEmpty()) {
+            String curProcessor = queue.pop();
+            processorsQueue.add(curProcessor);
+            for (int i = 0; i < graphOfDependencies.get(curProcessor).size(); i++) {
+                String to = graphOfDependencies.get(curProcessor).get(i);
+                if (!used.contains(to)) {
+                    used.add(to);
+                    queue.add(to);
+                }
+            }
+        }
     }
 
     private HashSet<String> used = new HashSet<>();
     private HashSet<String> paintedVertexes = new HashSet<>();
 
     // create dependencies graph via dfs in format: if A depends from B, graph has  edge B -> A
-    private void buildDependenciesGraph() throws ProcessorException {
+    private void makeDependenciesGraph() throws ProcessorException {
         // initialize empty graph
         for (Processor<T> processor : processors) {
             graphOfDependencies.put(processor.getId(), new ArrayList<>());
@@ -127,7 +145,7 @@ public class ProcessorsRunner<T> implements Runner<T> {
 
         for (Processor<T> processor : processors) {
             if (!used.contains(processor.getId())) {
-                dfsBuildGraph(processor.getId());
+                dfs(processor.getId());
             }
         }
     }
@@ -135,7 +153,7 @@ public class ProcessorsRunner<T> implements Runner<T> {
     // creators of information --- independent processors
     private ArrayList<String> sourceProcessors = new ArrayList<>();
 
-    private void dfsBuildGraph(String curProcessor) throws ProcessorException {
+    private void dfs(String curProcessor) throws ProcessorException {
         // source edges, needs to be reversed for our format of graph
         List<String> edges = idToProcessor.get(curProcessor).getInputIds();
 
@@ -154,7 +172,7 @@ public class ProcessorsRunner<T> implements Runner<T> {
 
             graphOfDependencies.get(edge).add(curProcessor);
             if (!used.contains(edge)) {
-                dfsBuildGraph(edge);
+                dfs(edge);
             }
         }
         paintedVertexes.remove(curProcessor);

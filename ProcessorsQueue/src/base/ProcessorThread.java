@@ -1,32 +1,23 @@
 package base;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
-public class ProcessorThread<T> extends Thread implements Runnable {
-    private ProcessorsRunner<T> mainClass;
+public class ProcessorThread<T> extends Thread implements Callable<T> {
     private Processor<T> processor;
-    private int iteration;
     private List<T> dependencies;
 
-    public ProcessorThread(ProcessorsRunner<T> mainClass, Processor<T> processor, int iteration, List<T> dependencies) {
-        this.mainClass = mainClass;
+    public ProcessorThread(Processor<T> processor, List<T> dependencies) {
         this.processor = processor;
-        this.iteration = iteration;
         this.dependencies = dependencies;
     }
 
     @Override
-    public void run() {
+    public T call() throws Exception {
         try {
-            T result = processor.process(dependencies);
-            if (result == null) {
-                mainClass.nullIteration = Math.min(mainClass.nullIteration, iteration);
-                return;
-            }
-
-            mainClass.setResults(processor.getId(), result);
+            return processor.process(dependencies);
         } catch (ProcessorException e) {
-            System.out.println("Processor exception at processor: " + processor.getId());
+            throw new ProcessorException("Processor exception at processor: " + processor.getId());
         } finally {
             this.interrupt();
         }
