@@ -2,7 +2,7 @@ package base.tests;
 
 import base.Processor;
 import base.ProcessorException;
-import base.ProcessorsRunner;
+import base.MultiThreadSolution;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -34,17 +34,17 @@ public class Test {
                     boolean i1 = false;
                     boolean i2 = false;
                     try {
-                        processorsSingle = new BruhSolution<Long>().runProcessors(processors, 50, j);
+                        processorsSingle = new SingleThreadSolution<Long>().runProcessors(processors, 50, j);
                     } catch (ProcessorException e) {
                         i1 = true;
                     }
                     try {
-                        processorsThread = new ProcessorsRunner<Long>().runProcessors(processorsCopy,
-                                Integer.max((int)Math.abs(Math.random() * 50), 1), j);
-                    } catch (ProcessorException | ExecutionException e) {
+                        processorsThread = new MultiThreadSolution<Long>().runProcessors(processorsCopy,
+                                10/*Integer.max((int)Math.abs(Math.random() * 50), 1)*/, j);
+                    } catch (ProcessorException | ExecutionException /*| ExecutionException*/ e) {
                         i2 = true;
                     }
-                    processorsSingle = processorsThread;
+                    //processorsSingle = processorsThread;
 
                     if (i1 || i2) {
                         if (!i1 || !i2) {

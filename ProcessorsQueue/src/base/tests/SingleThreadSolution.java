@@ -6,7 +6,7 @@ import base.Runner;
 
 import java.util.*;
 
-public class BruhSolution<T> implements Runner<T> {
+public class SingleThreadSolution<T> implements Runner<T> {
     private Set<Processor<T>> processors;
     private int maxThreads;
     private int maxIterations;
