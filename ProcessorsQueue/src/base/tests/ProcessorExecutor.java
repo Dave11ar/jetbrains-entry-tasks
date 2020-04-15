@@ -29,7 +29,7 @@ public class ProcessorExecutor<T extends Long> implements Processor<T> {
     @Override
     public T process(List<T> input) throws ProcessorException {
         long cur = startValue;
-
+        for (long i = 0; i < 2000000L; i++) i = i + i - i;
         for (T current : input) {
             cur = Math.abs(Long.min(1000000000L, cur + Long.valueOf(current) + startValue));
         }

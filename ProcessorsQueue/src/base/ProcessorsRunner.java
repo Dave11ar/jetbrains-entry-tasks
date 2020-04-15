@@ -35,14 +35,14 @@ public class ProcessorsRunner<T> implements Runner<T> {
         makeDependenciesGraph();
         buildProcessorsQueue();
 
-        threadPoolExecutor = Executors.newFixedThreadPool(maxThreads);
+        threadPoolExecutor = new ThreadPoolExecutor(maxThreads, maxThreads, 10000L, TimeUnit.MINUTES, new LinkedBlockingQueue<>());
 
         while (counter != processors.size()) {
             buildQueue();
         }
 
         threadPoolExecutor.shutdown();
-        threadPoolExecutor.awaitTermination(100, TimeUnit.MINUTES);
+        threadPoolExecutor.awaitTermination(10000, TimeUnit.MINUTES);
 
         for (Processor<T> processor : processors) {
             String curProcessor = processor.getId();
@@ -62,6 +62,7 @@ public class ProcessorsRunner<T> implements Runner<T> {
 
             if (curTask.isDone()) {
                 setResults(curProcessor, curTask.get());
+                curTask.cancel(true);
                 curIteration.replace(curProcessor, curIteration.get(curProcessor) + 1);
                 if (curIteration.get(curProcessor) == maxIterations) counter++;
                 delete.add(curProcessor);

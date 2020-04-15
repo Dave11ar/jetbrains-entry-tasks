@@ -39,15 +39,14 @@ public class Test {
                         i1 = true;
                     }
                     try {
-                        processorsThread = new ProcessorsRunner<Long>().runProcessors(processorsCopy, 50, j);
+                        processorsThread = new ProcessorsRunner<Long>().runProcessors(processorsCopy,
+                                Integer.max((int)Math.abs(Math.random() * 50), 1), j);
                     } catch (ProcessorException | ExecutionException e) {
                         i2 = true;
                     }
+                    processorsSingle = processorsThread;
 
                     if (i1 || i2) {
-                        if (loop == 0) {
-                            System.out.println("jopa");
-                        }
                         if (!i1 || !i2) {
                             System.out.println("Test #" + test + " failed");
                         } else {
@@ -92,14 +91,14 @@ public class Test {
         processors = new HashSet<>();
         for (Integer i = 0; i < numberOfProcessors; i++) {
             List<String> dependencies = new LinkedList<>();
-            Set<String> jopa = new HashSet<>();
+            Set<String> alreadyIn = new HashSet<>();
             int d = (int) (Math.random() * Math.sqrt(numberOfProcessors));
 
             for (int j = 0; j < d; j++) {
                 Long cur = (long) (Math.random() * numberOfProcessors);
-                if (cur.equals((long)i) || jopa.contains(cur.toString())) continue;
+                if (cur.equals((long)i) || alreadyIn.contains(cur.toString())) continue;
 
-                jopa.add(cur.toString());
+                alreadyIn.add(cur.toString());
                 dependencies.add(cur.toString());
             }
             aba.put(i.toString(), (long) (Math.abs(Math.random()) * 10));
