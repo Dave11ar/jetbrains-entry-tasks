@@ -6,7 +6,7 @@ import java.util.concurrent.*;
 public class MultiThreadSolution<T> implements Runner<T> {
     private Set<Processor<T>> processors;
 
-    private ExecutorService threadPoolExecutor;
+    private ThreadPoolExecutor threadPoolExecutor;
 
     // map of <processorID, Future<T> in execution queue for threadPoolExecutor>
     private Map<String, Future<T>> futureTasks = new HashMap<>();
@@ -15,7 +15,6 @@ public class MultiThreadSolution<T> implements Runner<T> {
     private Map<String, List<String>> graphOfDependencies = new HashMap<>();
 
     private int nullIteration; // this iteration and next should be ignored in output
-    private int completedProcessorIterations = 0; // number of processors which completed all maxIterations
     private Set<String> executingProcessors = new HashSet<>(); // processors which executing right now
     private List<String> sourceProcessors = new ArrayList<>(); // processors which don't depend from other
     private Map<String,  Integer> curIteration = new HashMap<>(); // current number of iteration for each processor
@@ -49,9 +48,7 @@ public class MultiThreadSolution<T> implements Runner<T> {
                             curIteration.get(curProcessor)))));
         }
 
-        while (completedProcessorIterations != processors.size()) {
-            addNewTasks();
-        }
+        while (addNewTasks());
 
         threadPoolExecutor.shutdown();
         threadPoolExecutor.awaitTermination(10L, TimeUnit.HOURS);
@@ -78,7 +75,7 @@ public class MultiThreadSolution<T> implements Runner<T> {
 
      * @throws ProcessorException if getInputIds() contains unknown processor ID
      */
-    private void addNewTasks() throws ExecutionException, InterruptedException, ProcessorException {
+    private boolean addNewTasks() throws ExecutionException, InterruptedException, ProcessorException {
         Set<String> delete = new HashSet<>();
         for (String curProcessor: executingProcessors) {
             Future<T> curTask = futureTasks.get(curProcessor);
@@ -88,29 +85,25 @@ public class MultiThreadSolution<T> implements Runner<T> {
 
                 if (result == null) {
                     nullIteration = Math.min(nullIteration, curIteration.get(curProcessor));
-                    for (Processor<T> processor : processors) {
-                        if (curIteration.get(processor.getId()) >= nullIteration)  {
-                            completedProcessorIterations++;
-                        }
-                    }
                 }
 
                 results.get(curProcessor).add(result);
                 futureTasks.remove(curProcessor);
                 curIteration.replace(curProcessor, curIteration.get(curProcessor) + 1);
 
-                if (curIteration.get(curProcessor) >= nullIteration) {
-                    completedProcessorIterations++;
-                }
                 delete.add(curProcessor);
             }
         }
 
-        // If no task is completed we cannot add a new one
-        if (delete.isEmpty()) return;
+        // If no tasks are completed we cannot add a new one and should wait,
+        // but if there are no tasks to wait => all processors completed all iterations
+        if (delete.isEmpty()) {
+            return !futureTasks.isEmpty();
+        }
 
-        for (String curProcessor : delete) executingProcessors.remove(curProcessor);
-
+        for (String curProcessor : delete) {
+            executingProcessors.remove(curProcessor);
+        }
         for (String curProcessor : delete) {
             // These processors can be available to start new iteration
             List<String> needToCheck = graphOfDependencies.get(curProcessor);
@@ -126,6 +119,7 @@ public class MultiThreadSolution<T> implements Runner<T> {
                 }
             }
         }
+        return true;
     }
 
     /**

@@ -74,7 +74,9 @@ public class Test {
 
     private static void testResult(boolean result) {
         System.out.println("Test #" + test++ + (result ? " passed" : " failed"));
-        if (result) passed++;
+        if (result) {
+            passed++;
+        }
     }
 
     /**
